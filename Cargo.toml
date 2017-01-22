@@ -1,0 +1,15 @@
+[package]
+name = "thread_pool"
+version = "0.1.0"
+authors = ["nathanfaucett <nathanfaucett@gmail.com>"]
+
+keywords = ["thread_pool"]
+description = "thread pool"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/nathanfaucett/rs-thread_pool.git"
+homepage = "https://github.com/nathanfaucett/rs-thread_pool"
+
+
+[dependencies]
+num_cpus = "1.2"
