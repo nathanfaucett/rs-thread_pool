@@ -72,8 +72,8 @@ fn bench_single_thread(b: &mut Bencher) {
              });
         }
 
-        for value in values {
-            assert_eq!(SIZE, value);
+        for value in values.iter() {
+            assert_eq!(SIZE, *value);
         }
     });
 }

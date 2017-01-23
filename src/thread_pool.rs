@@ -22,14 +22,14 @@ impl<F> BoxFn for F
 pub type Thunk = Box<BoxFn + Send + 'static>;
 
 
-struct Thread {
+struct Thread<'a> {
     active: bool,
-    tasks_receiver: Arc<Mutex<Receiver<Thunk>>>,
+    tasks_receiver: &'a Arc<Mutex<Receiver<Thunk>>>,
 }
 
-impl Thread {
+impl<'a> Thread<'a> {
     fn new(
-        tasks_receiver: Arc<Mutex<Receiver<Thunk>>>,
+        tasks_receiver:  &'a Arc<Mutex<Receiver<Thunk>>>,
     ) -> Self {
         Thread {
             active: true,
@@ -44,12 +44,10 @@ impl Thread {
     }
 }
 
-impl Drop for Thread {
+impl<'a> Drop for Thread<'a> {
     fn drop(&mut self) {
         if self.is_active() {
-            spawn_in_pool(
-                self.tasks_receiver.clone()
-            );
+            spawn_in_pool(self.tasks_receiver.clone());
         }
     }
 }
@@ -87,9 +85,7 @@ fn spawn_in_pool(
     tasks_receiver: Arc<Mutex<Receiver<Thunk>>>,
 ) {
     thread::spawn(move || {
-        let mut t = Thread::new(
-            tasks_receiver.clone()
-        );
+        let mut t = Thread::new(&tasks_receiver);
 
         loop {
             match tasks_receiver.lock() {
