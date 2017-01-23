@@ -1,6 +1,8 @@
 extern crate thread_pool;
 
 
+use std::sync::mpsc;
+
 use thread_pool::ThreadPool;
 
 
@@ -24,21 +26,22 @@ fn fac(x: usize) -> usize {
 #[test]
 fn test() {
     let thread_pool = ThreadPool::new();
-
-    let mut handles = Vec::with_capacity(SIZE);
+    let (sender, receiver) = mpsc::channel();
 
     for _ in 0..SIZE {
-        handles.push(thread_pool.run(move || {
+        let sender = sender.clone();
+
+        let _ = thread_pool.run(move || {
             let mut out = 0;
             for _ in 0..SIZE {
                 fac(FAC);
                 out += 1;
             }
-            out
-        }));
+            let _ = sender.send(out);
+        });
     }
 
-    for handle in handles {
-        assert_eq!(SIZE, handle.join().unwrap());
+    for _ in 0..SIZE {
+        assert_eq!(SIZE, receiver.recv().unwrap());
     }
 }
