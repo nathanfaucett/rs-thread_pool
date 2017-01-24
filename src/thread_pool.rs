@@ -1,7 +1,6 @@
 use std::sync::mpsc::{channel, Receiver, Sender, SendError};
 use std::thread;
-use std::ops::Deref;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use num_cpus;
 
@@ -24,41 +23,15 @@ impl<F> BoxFn for F
 pub type Thunk = Box<BoxFn + Send + 'static>;
 
 
-struct Ref<T> {
-    ptr: Box<T>,
-}
-
-unsafe impl<T> Sync for Ref<T> {}
-unsafe impl<T> Send for Ref<T> {}
-
-impl<T> Ref<T> {
-    #[inline(always)]
-    pub fn new(value: T) -> Self {
-        Ref {
-            ptr: Box::new(value),
-        }
-    }
-}
-
-impl<T> Deref for Ref<T> {
-    type Target = T;
-
-    #[inline(always)]
-    fn deref(&self) -> &Self::Target {
-        &*self.ptr
-    }
-}
-
-
 struct Thread<'a> {
     active: bool,
-    tasks_receiver: &'a Arc<Ref<Receiver<Thunk>>>,
+    tasks_receiver: &'a Arc<Mutex<Receiver<Thunk>>>,
 }
 
 impl<'a> Thread<'a> {
     #[inline(always)]
     fn new(
-        tasks_receiver:  &'a Arc<Ref<Receiver<Thunk>>>,
+        tasks_receiver:  &'a Arc<Mutex<Receiver<Thunk>>>,
     ) -> Self {
         Thread {
             active: true,
@@ -98,7 +71,7 @@ impl ThreadPool {
     }
     pub fn from_count(thread_count: usize) -> Self {
         let (sender, receiver) = channel::<Thunk>();
-        let tasks_receiver = Arc::new(Ref::new(receiver));
+        let tasks_receiver = Arc::new(Mutex::new(receiver));
 
         for _ in 0..thread_count {
             spawn_thread(tasks_receiver.clone());
@@ -119,14 +92,17 @@ impl ThreadPool {
 
 #[inline(always)]
 fn spawn_thread(
-    tasks_receiver: Arc<Ref<Receiver<Thunk>>>,
+    tasks_receiver: Arc<Mutex<Receiver<Thunk>>>,
 ) {
     thread::spawn(move || {
         let mut t = Thread::new(&tasks_receiver);
 
         loop {
-            match tasks_receiver.recv() {
-                Ok(func) => func.call_box_fn(),
+            match tasks_receiver.lock() {
+                Ok(tasks) => match tasks.recv() {
+                    Ok(func) => func.call_box_fn(),
+                    Err(..) => break,
+                },
                 Err(..) => break,
             }
         }

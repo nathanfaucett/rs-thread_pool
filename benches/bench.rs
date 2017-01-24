@@ -7,26 +7,27 @@ extern crate thread_pool;
 
 
 use std::sync::mpsc;
+use std::usize;
 
 use test::Bencher;
 
 use thread_pool::ThreadPool;
 
 
-const SIZE: usize = 1024;
+const SIZE: usize = 1024usize;
 
 #[cfg(target_pointer_width = "64")]
-const FAC: usize = 20;
+const FAC: usize = 20usize;
 
 #[cfg(target_pointer_width = "32")]
-const FAC: usize = 12;
+const FAC: usize = 12usize;
 
 
 fn fac(x: usize) -> usize {
-    if x == 0 {
-        1
+    if x == 0usize {
+        1usize
     } else {
-        x * fac(x - 1)
+        x * fac(x - 1usize)
     }
 }
 
@@ -41,17 +42,16 @@ fn bench_threads(b: &mut Bencher) {
             let sender = sender.clone();
 
             let _ = thread_pool.run(move || {
-                let mut out = 0;
+                let mut out = 0usize;
                 for _ in 0..SIZE {
-                    fac(FAC);
-                    out += 1;
+                    out = out.wrapping_add(fac(FAC));
                 }
                 let _ = sender.send(out);
             });
         }
 
         for _ in 0..SIZE {
-            assert_eq!(SIZE, receiver.recv().unwrap());
+            assert_ne!(receiver.recv().unwrap(), 0usize);
         }
     });
 }
@@ -63,17 +63,16 @@ fn bench_single_thread(b: &mut Bencher) {
 
         for _ in 0..SIZE {
              values.push({
-                 let mut out = 0;
+                 let mut out = 0usize;
                  for _ in 0..SIZE {
-                     fac(FAC);
-                     out += 1;
+                     out = out.wrapping_add(fac(FAC));
                  }
                  out
              });
         }
 
         for value in values.iter() {
-            assert_eq!(SIZE, *value);
+            assert_ne!(*value, 0usize);
         }
     });
 }
