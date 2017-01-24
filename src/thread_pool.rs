@@ -1,6 +1,7 @@
 use std::sync::mpsc::{channel, Receiver, Sender, SendError};
 use std::thread;
-use std::sync::{Arc, Mutex};
+use std::ops::Deref;
+use std::sync::Arc;
 
 use num_cpus;
 
@@ -13,6 +14,7 @@ impl<F> BoxFn for F
     where F: FnOnce(),
           F: Send + 'static,
 {
+    #[inline(always)]
     fn call_box_fn(self: Box<F>) {
         (*self)()
     }
@@ -22,14 +24,41 @@ impl<F> BoxFn for F
 pub type Thunk = Box<BoxFn + Send + 'static>;
 
 
+struct Ref<T> {
+    ptr: Box<T>,
+}
+
+unsafe impl<T> Sync for Ref<T> {}
+unsafe impl<T> Send for Ref<T> {}
+
+impl<T> Ref<T> {
+    #[inline(always)]
+    pub fn new(value: T) -> Self {
+        Ref {
+            ptr: Box::new(value),
+        }
+    }
+}
+
+impl<T> Deref for Ref<T> {
+    type Target = T;
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        &*self.ptr
+    }
+}
+
+
 struct Thread<'a> {
     active: bool,
-    tasks_receiver: &'a Arc<Mutex<Receiver<Thunk>>>,
+    tasks_receiver: &'a Arc<Ref<Receiver<Thunk>>>,
 }
 
 impl<'a> Thread<'a> {
+    #[inline(always)]
     fn new(
-        tasks_receiver:  &'a Arc<Mutex<Receiver<Thunk>>>,
+        tasks_receiver:  &'a Arc<Ref<Receiver<Thunk>>>,
     ) -> Self {
         Thread {
             active: true,
@@ -37,14 +66,19 @@ impl<'a> Thread<'a> {
         }
     }
 
-    fn is_active(&self) -> bool { self.active }
+    #[inline(always)]
+    fn is_active(&self) -> bool {
+        self.active
+    }
 
+    #[inline(always)]
     fn kill(&mut self) {
         self.active = false;
     }
 }
 
 impl<'a> Drop for Thread<'a> {
+    #[inline(always)]
     fn drop(&mut self) {
         if self.is_active() {
             spawn_thread(self.tasks_receiver.clone());
@@ -58,12 +92,13 @@ pub struct ThreadPool {
 }
 
 impl ThreadPool {
+    #[inline(always)]
     pub fn new() -> Self {
         Self::from_count(num_cpus::get() - 1)
     }
     pub fn from_count(thread_count: usize) -> Self {
         let (sender, receiver) = channel::<Thunk>();
-        let tasks_receiver = Arc::new(Mutex::new(receiver));
+        let tasks_receiver = Arc::new(Ref::new(receiver));
 
         for _ in 0..thread_count {
             spawn_thread(tasks_receiver.clone());
@@ -73,6 +108,7 @@ impl ThreadPool {
             tasks: sender,
         }
     }
+    #[inline(always)]
     pub fn run<F>(&self, func: F) -> Result<(), SendError<Thunk>>
         where F: FnOnce(),
               F: Send + 'static,
@@ -81,20 +117,18 @@ impl ThreadPool {
     }
 }
 
+#[inline(always)]
 fn spawn_thread(
-    tasks_receiver: Arc<Mutex<Receiver<Thunk>>>,
+    tasks_receiver: Arc<Ref<Receiver<Thunk>>>,
 ) {
     thread::spawn(move || {
         let mut t = Thread::new(&tasks_receiver);
 
         loop {
-            match tasks_receiver.lock() {
-                Ok(tasks) => match tasks.recv() {
-                    Ok(func) => func.call_box_fn(),
-                    Err(..) => break,
-                },
+            match tasks_receiver.recv() {
+                Ok(func) => func.call_box_fn(),
                 Err(..) => break,
-            };
+            }
         }
 
         t.kill();
