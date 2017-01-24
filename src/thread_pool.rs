@@ -61,6 +61,7 @@ impl<'a> Drop for Thread<'a> {
 
 
 pub struct ThreadPool {
+    thread_count: usize,
     tasks: Sender<Thunk>,
 }
 
@@ -78,9 +79,12 @@ impl ThreadPool {
         }
 
         ThreadPool {
+            thread_count: thread_count,
             tasks: sender,
         }
     }
+    #[inline(always)]
+    pub fn thread_count(&self) -> usize { self.thread_count }
     #[inline(always)]
     pub fn run<F>(&self, func: F) -> Result<(), SendError<Thunk>>
         where F: FnOnce(),
