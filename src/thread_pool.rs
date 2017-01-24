@@ -47,7 +47,7 @@ impl<'a> Thread<'a> {
 impl<'a> Drop for Thread<'a> {
     fn drop(&mut self) {
         if self.is_active() {
-            spawn_in_pool(self.tasks_receiver.clone());
+            spawn_thread(self.tasks_receiver.clone());
         }
     }
 }
@@ -66,7 +66,7 @@ impl ThreadPool {
         let tasks_receiver = Arc::new(Mutex::new(receiver));
 
         for _ in 0..thread_count {
-            spawn_in_pool(tasks_receiver.clone());
+            spawn_thread(tasks_receiver.clone());
         }
 
         ThreadPool {
@@ -81,7 +81,7 @@ impl ThreadPool {
     }
 }
 
-fn spawn_in_pool(
+fn spawn_thread(
     tasks_receiver: Arc<Mutex<Receiver<Thunk>>>,
 ) {
     thread::spawn(move || {
