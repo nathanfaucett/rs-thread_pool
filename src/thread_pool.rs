@@ -102,11 +102,10 @@ fn spawn_thread(
         let mut t = Thread::new(&tasks_receiver);
 
         loop {
-            match tasks_receiver.lock() {
-                Ok(tasks) => match tasks.recv() {
-                    Ok(func) => func.call_box_fn(),
-                    Err(..) => break,
-                },
+            let msg = tasks_receiver.lock().unwrap().recv();
+            
+            match msg {
+                Ok(func) => func.call_box_fn(),
                 Err(..) => break,
             }
         }
