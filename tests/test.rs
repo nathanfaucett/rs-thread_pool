@@ -1,47 +1,35 @@
+extern crate num_cpus;
+extern crate waiter;
 extern crate thread_pool;
 
 
-use std::sync::mpsc;
+use std::{thread, time};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
+use waiter::Waiter;
 use thread_pool::ThreadPool;
 
 
-const SIZE: usize = 1024;
-
-#[cfg(target_pointer_width = "64")]
-const FAC: usize = 20;
-
-#[cfg(target_pointer_width = "32")]
-const FAC: usize = 12;
-
-
-fn fac(x: usize) -> usize {
-    if x == 0 {
-        1
-    } else {
-        x * fac(x - 1)
-    }
-}
-
 #[test]
-fn test() {
-    let thread_pool = ThreadPool::new();
-    let (sender, receiver) = mpsc::channel();
+fn test_threads() {
+    let cpus = num_cpus::get();
+    let thread_pool = ThreadPool::from_count(cpus);
 
-    for _ in 0..SIZE {
-        let sender = sender.clone();
+    let waiter = Waiter::new();
+    let counter = Arc::new(AtomicUsize::new(0usize));
+
+    for _ in 0..cpus {
+        let waiter = waiter.clone();
+        let counter = counter.clone();
 
         let _ = thread_pool.run(move || {
-            let mut out = 0;
-            for _ in 0..SIZE {
-                fac(FAC);
-                out += 1;
-            }
-            let _ = sender.send(out);
+            thread::sleep(time::Duration::from_millis(1));
+            counter.fetch_add(1usize, Ordering::Relaxed);
+            waiter.done();
         });
     }
 
-    for _ in 0..SIZE {
-        assert_eq!(SIZE, receiver.recv().unwrap());
-    }
+    waiter.wait();
+    assert_eq!(counter.load(Ordering::Relaxed), cpus);
 }

@@ -13,3 +13,6 @@ homepage = "https://github.com/nathanfaucett/rs-thread_pool"
 
 [dependencies]
 num_cpus = "1.2"
+
+[dev-dependencies]
+waiter = {git = "https://github.com/nathanfaucett/rs-waiter"}
