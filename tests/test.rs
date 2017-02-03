@@ -14,7 +14,7 @@ use thread_pool::ThreadPool;
 #[test]
 fn test_threads() {
     let cpus = num_cpus::get();
-    let thread_pool = ThreadPool::from_count(cpus);
+    let thread_pool = ThreadPool::from(cpus);
 
     let waiter = Waiter::new();
     let counter = Arc::new(AtomicUsize::new(0usize));

@@ -19,7 +19,7 @@ use thread_pool::ThreadPool;
 #[bench]
 fn bench_threads(b: &mut Bencher) {
     let cpus = num_cpus::get();
-    let thread_pool = ThreadPool::from_count(cpus);
+    let thread_pool = ThreadPool::from(cpus);
 
     b.iter(|| {
         let waiter = Waiter::new();
