@@ -21,7 +21,7 @@ fn bench_thread_pool(b: &mut Bencher) {
     let thread_pool = ThreadPool::new_with_thread_count(cpus);
 
     b.iter(|| {
-        let waiter = Waiter::new();
+        let waiter = Waiter::new_with_count(cpus);
 
         for _ in 0..cpus {
             let waiter = waiter.clone();
