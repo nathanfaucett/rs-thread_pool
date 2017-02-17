@@ -1,4 +1,3 @@
-use std::convert::From;
 use std::sync::mpsc::{channel, Receiver, Sender, SendError};
 use std::thread;
 use std::sync::{Arc, Mutex};
@@ -66,27 +65,24 @@ pub struct ThreadPool {
     tasks: Sender<Thunk>,
 }
 
-impl From<usize> for ThreadPool {
-    #[inline]
-    fn from(value: usize) -> Self {
+impl ThreadPool {
+    #[inline(always)]
+    pub fn new() -> Self {
+        Self::new_with_thread_count(num_cpus::get())
+    }
+    #[inline(always)]
+    pub fn new_with_thread_count(thread_count: usize) -> Self {
         let (sender, receiver) = channel::<Thunk>();
         let tasks_receiver = Arc::new(Mutex::new(receiver));
 
-        for _ in 0..value {
+        for _ in 0..thread_count {
             spawn_thread(tasks_receiver.clone());
         }
 
         ThreadPool {
-            thread_count: value,
+            thread_count: thread_count,
             tasks: sender,
         }
-    }
-}
-
-impl ThreadPool {
-    #[inline(always)]
-    pub fn new() -> Self {
-        Self::from(num_cpus::get() - 1)
     }
     #[inline(always)]
     pub fn thread_count(&self) -> usize { self.thread_count }
